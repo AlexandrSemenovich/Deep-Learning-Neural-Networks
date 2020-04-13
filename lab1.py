@@ -142,8 +142,11 @@ for epoch in range(50):  # loop over the dataset multiple times
 
 
 print('Тренировка завершена')
+
 loss_array = tuple(loss_array)
+print (loss_array)
 accuracy_array = tuple(accuracy_array)
+print (accuracy_array)
 
 """7) Сохранение обученной модели"""
 

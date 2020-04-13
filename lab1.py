@@ -193,16 +193,13 @@ for i in range(10):
 
 """9) Вывод графиков"""
 
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import grid
-
-
 epochs = [i for i in range(1, 51)]
 
 plt_acc = plt.plot(epochs, loss_array)
 plt.xlabel("Эпоха")
 plt.ylabel("Потери")
 plt.show()
+
 
 plt_acc = plt.plot(epochs, accuracy_array)
 plt.xlabel("Эпоха")

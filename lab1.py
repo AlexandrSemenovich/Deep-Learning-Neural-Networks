@@ -152,27 +152,13 @@ torch.save(net.state_dict(), PATH)
 
 """8) Тестируем сеть с помощью тестовых данных"""
 
-def test(epoch, model):
-    net = model
-    net.eval()
-    test_loss = 0
-    correct = 0
-    with torch.no_grad():
-        for X, label in test_data:
-            X, label = X.to(device), label.to(device)
+dataiter = iter(testloader)
+images, labels = dataiter.next()
 
-            output = CNN(X)
-            loss = criterion(output, label)
-            test_loss += loss.item()
-
-            _, pred = torch.max(output, 1)
-            acc = accuracy_score(label.cpu().data.squeeze().numpy(), pred.cpu().data.squeeze().numpy())
-
-    test_loss /= len(test_data)
-    print('\nTest set ({:d} samples): Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(len(test_data),
-                                                                                        test_loss,
-                                                                                        100 * acc))
-    return test_loss / len(test_data), 100 * acc
+# печатаем изображения
+imshow(torchvision.utils.make_grid(images))
+print('GroundTruth: ', 
+      ' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
 correct = 0
 total = 0
@@ -214,17 +200,11 @@ from matplotlib.pyplot import grid
 epochs = [i for i in range(1, 51)]
 
 plt_acc = plt.plot(epochs, loss_array)
-
 plt.xlabel("Эпоха")
 plt.ylabel("Потери")
-plt.grid()
-
 plt.show()
 
 plt_acc = plt.plot(epochs, accuracy_array)
-
 plt.xlabel("Эпоха")
 plt.ylabel("Аккуратность")
-plt.grid()
-
 plt.show()

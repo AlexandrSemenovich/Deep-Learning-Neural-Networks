@@ -13,20 +13,19 @@ Original file is located at
 1) Загрузка пакетов
 """
 
+from torchvision.models import resnet50
 import torch
 import torchvision
-import torchvision.transforms as transforms
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-import torch.nn as nn
-import torch.nn.functional as F
-
+from torchvision.datasets import CIFAR10
 import torch.optim as optim
-
+import torch.nn.functional as F
+import torch.nn as nn
+import torchvision.transforms as tf
+from torch.utils.data import DataLoader
+from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import numpy as np
+from torchsummary import summary
 
 print('PyTorch version:', torch.__version__)
 
@@ -86,36 +85,32 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 net = Net()
-print ( net )
+net.to(device)
 
 """5) Задаем функцию потери и оптимизатор"""
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-"""GPU"""
-
-print('\n===> Training Start')
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-net.to(device)
-if torch.cuda.device_count() > 1:
-    print('\n===> Training on GPU!')
-    net = nn.DataParallel(net)
-
 """6) Тренировка сеть"""
 
-# проходим в цикле по набору данных несколько раз
-for epoch in range(2):  
+loss_array = list()
+accuracy_array = list()
 
+dataiter = iter(testloader)
+images = dataiter.next()[0].to(device)
+
+for epoch in range(50):  # loop over the dataset multiple times
+
+    epoch_loss = 0.0
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
-        # получаем вводные данные
-        inputs, labels = data
+        # get the inputs; data is a list of [inputs, labels]
+        inputs, labels = data[0].to(device), data[1].to(device)
 
-        # обнуляем параметр gradients
+        # zero the parameter gradients
         optimizer.zero_grad()
 
         # forward + backward + optimize
@@ -124,27 +119,60 @@ for epoch in range(2):
         loss.backward()
         optimizer.step()
 
-        # печатаем статистику
+        # print statistics
         running_loss += loss.item()
-        if i % 2000 == 1999:    # печатаем каждые 2000 мини-пакетов
-            print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 2000))
+        epoch_loss += loss.item()
+        if i % 2000 == 1999:  # print every 2000 mini-batches
+            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 2000))
             running_loss = 0.0
 
-print('Тренировка завершена')
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data in testloader:
+            images, lbls = data[0].to(device), data[1].to(device)
+            output = net(images)
+            _, predicted = torch.max(output.data, 1)
+            total += lbls.size(0)
+            correct += (predicted == lbls).sum().item()
 
-"""7) Сохранени обученной модели"""
+    loss_array.append(epoch_loss / 12500)
+    accuracy_array.append(100 * correct / total) 
+    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
+
+
+print('Тренировка завершена')
+loss_array = tuple(loss_array)
+accuracy_array = tuple(accuracy_array)
+
+"""7) Сохранение обученной модели"""
 
 PATH = './cifar_net.pth'
 torch.save(net.state_dict(), PATH)
 
 """8) Тестируем сеть с помощью тестовых данных"""
 
-dataiter = iter(testloader)
-images, labels = dataiter.next()
+def test(epoch, model):
+    net = model
+    net.eval()
+    test_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for X, label in test_data:
+            X, label = X.to(device), label.to(device)
 
-imshow(torchvision.utils.make_grid(images))
-print('GroundTruth: ', ' '.join('%5s' % classes[labels[j]] for j in range(4)))
+            output = CNN(X)
+            loss = criterion(output, label)
+            test_loss += loss.item()
+
+            _, pred = torch.max(output, 1)
+            acc = accuracy_score(label.cpu().data.squeeze().numpy(), pred.cpu().data.squeeze().numpy())
+
+    test_loss /= len(test_data)
+    print('\nTest set ({:d} samples): Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(len(test_data),
+                                                                                        test_loss,
+                                                                                        100 * acc))
+    return test_loss / len(test_data), 100 * acc
 
 correct = 0
 total = 0
@@ -177,46 +205,26 @@ for i in range(10):
     print('Аккуратность %5s : %2d %%' % (
         classes[i], 100 * class_correct[i] / class_total[i]))
 
-def train (epoch, model):
-    CNN = model
-    train_accuracy = 0
-    train_loss = 0
-    total = 0
-    N_count = 0 
-    for batch, (X, lable) in enumerate(trainloader, 0):
-        X, lable = X.to(device), lable.to(device)
+"""9) Вывод графиков"""
 
-        N_count += X.size(0)
-        optimizer.zero_grad()
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import grid
 
-        outputs = СNN(X)
-        loss = criterion(output, labels)
-        loss.backward()
-        optimizer.step()
 
-        train_loss += loss.item()
-        _, predicted = torch.max(outputs, 1)
-        total += labels.size(0)
-        train_accuracy = accuracy_score(label.cpu().data.squeeze().numpy(), predicted.cpu().data.sqeeze().numpy())
+epochs = [i for i in range(1, 51)]
 
-        train_accuracy = []
-        test_accuracy = []
-        for epoch in range(2):
-            train_acc, train_losses = train(epoch, CNN)
-            test_losses, test_acc = test(epoch, CNN)
-            train_accuracy.append(train_acc)
-            train_loss.append(tarin_losses)
-            test_accuracy.append(test_acc)
-            test_loss.append(test_losses)
+plt_acc = plt.plot(epochs, loss_array)
 
-        fig, ax = plt.subplots()
-        plt.title('Loss')
-        plt.ylabel('Value of loss')
-        plt.xlabel('Epochs')
-        plt.plot(train_loss)
-        plt.legend('Train')
-        plt.plot(lest_loss)
-        plt.legend('Test')
-        fig.savefig('Loss.png')
-        plt.show()
-        #plt.close()
+plt.xlabel("Эпоха")
+plt.ylabel("Потери")
+plt.grid()
+
+plt.show()
+
+plt_acc = plt.plot(epochs, accuracy_array)
+
+plt.xlabel("Эпоха")
+plt.ylabel("Аккуратность")
+plt.grid()
+
+plt.show()
